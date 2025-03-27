@@ -1,0 +1,64 @@
+@startuml
+actor Customer
+participant LoginView
+participant AuthController
+participant CustomerCustomersDAO
+participant EncyptHelper
+participant AutoMapper
+participant JwtTokenHelper
+database Database
+
+alt try
+Customer -> LoginView: 1. Enter login credentials
+activate LoginView
+
+LoginView -> LoginView: 2. Check validate input data
+activate LoginView
+opt Validate input data
+    LoginView --> Customer: 3. Show error message
+end
+
+LoginView -> AuthController: 4. POST /api/Auth/Login (LoginRequestDTO)
+deactivate LoginView
+activate AuthController
+AuthController -> CustomerCustomersDAO: 5. findCustomerCustomerByEmail(LoginRequest.Email)
+activate CustomerCustomersDAO
+
+CustomerCustomersDAO -> Database: 6. context.Users.Where(u => u.Email == email && ).FirstOrDefaultAsync();
+activate Database
+Database --> CustomerCustomersDAO: 7. Customer data (or null)
+deactivate Database
+CustomerCustomersDAO --> AuthController: 8 Customer data (or null)
+deactivate CustomerCustomersDAO
+
+AuthController -> AuthController: 9. Check Customer data
+activate AuthController
+
+alt Login failed
+    AuthController --> LoginView: 10. 404 Not Found (Email not found or Incorrect password)
+    LoginView -> Customer: 11. Show error message
+
+else Login successful
+    AuthController -> AutoMapper: 12. Map CustomerCustomerDAO to CustomerCustomerDTO
+    deactivate AuthController
+    activate AutoMapper
+    AutoMapper --> AuthController: 13. CustomerCustomerDTO
+    deactivate AutoMapper
+
+    AuthController -> JwtTokenHelper: 14. GenerateJwtToken(CustomerCustomerDTO)
+    activate JwtTokenHelper
+    JwtTokenHelper --> AuthController: 15. token
+    deactivate JwtTokenHelper
+
+    AuthController -> LoginView: 16. 200 OK (Login successfully, token)
+    LoginView -> Customer: 17. Redirect to dashboard/ home page
+
+end
+else Catch Exception
+    AuthController -->LoginView: 18. 500 Internal Server Error
+    deactivate AuthController
+    LoginView --> Customer: 19. Show error message
+    deactivate LoginView
+end
+
+@enduml

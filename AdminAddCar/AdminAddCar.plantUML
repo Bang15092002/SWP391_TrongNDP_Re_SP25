@@ -1,0 +1,62 @@
+@startuml
+class AdminCarsController {
+    +AdminGetAllCars() : Task<ActionResult>
+}
+
+class CarsDAO {
+    +GetInstance() : CarsDAO
+    +GetAllCars() : Task<List<Cars>>
+}
+
+class JwtTokenHelper {
+    +AuthenticateAndAuthorize(HttpContext httpContext, int roleId) : (bool, string?, Dictionary<string, object>?)
+}
+
+class ResponseHelper {
+    +ResponseError(int statusCode, string message, bool success, object? data) : object
+    +Response(int statusCode, string message, bool success, object? data) : object
+}
+
+class AutoMapper {
+    +ToAdminCarDTOList(List<Cars> cars) : List<AdminCarDTO>
+}
+
+class Cars {
+    +Id : int
+    +Name : string
+    +Seats : int
+    +Image : string
+    +SpecImage : string
+    +ImageBanner : string
+    +PriceBatteryRental : double
+    +PriceBatteryOwn : double
+    +PriceDeposite : double
+    +Quantity : int
+    +IsDeleted : bool
+    +IsShowed : bool
+}
+
+class AdminCarDTO {
+    +Id : int
+    +Model : string
+    +Seat : int
+    +Image : string
+    +SpecImage : string
+    +BannerImage : string
+    +PriceBatteryOwn : double
+    +PriceBatteryRental : double
+    +PriceDeposite : double
+    +Quantity : int
+    +IsDeleted : bool
+    +IsShowed : bool
+}
+
+AdminCarsController --> JwtTokenHelper : AuthenticateAndAuthorize()
+AdminCarsController --> CarsDAO : GetInstance()
+AdminCarsController --> CarsDAO : GetAllCars()
+AdminCarsController --> AutoMapper : ToAdminCarDTOList()
+AdminCarsController --> ResponseHelper : ResponseError()
+AdminCarsController --> ResponseHelper : Response()
+CarsDAO --> Cars : Entity
+AutoMapper --> AdminCarDTO : DTO
+@enduml

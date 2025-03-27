@@ -1,0 +1,86 @@
+@startuml
+actor User
+participant RegisterView
+participant AuthController
+participant UsersDAO
+participant VinfastContext
+database Database
+
+User -> RegisterView : Fill registration form
+activate RegisterView
+RegisterView -> RegisterView : Validate input
+
+
+opt Missing information
+    RegisterView --> User : HTTP 400 Bad Request (Missing information)
+    deactivate RegisterView
+end
+RegisterView -> AuthController : POST /api/Auth/Register
+activate AuthController
+
+AuthController -> UsersDAO : findUserByEmail(RegisterRequest.Email)
+activate UsersDAO
+UsersDAO -> VinfastContext : Query user by email
+activate VinfastContext
+VinfastContext -> Database : Execute query
+activate Database
+Database --> VinfastContext : Return result
+deactivate Database
+VinfastContext --> UsersDAO : Return user or null
+deactivate VinfastContext
+UsersDAO --> AuthController : Return user or null
+deactivate UsersDAO
+
+AuthController -> AuthController : Check if user exists
+alt User exists
+    AuthController --> RegisterView : HTTP 409 Conflict (Email already exists)
+    deactivate AuthController
+else User does not exist
+    AuthController -> UsersDAO : AddUser(new User)
+    activate UsersDAO
+    UsersDAO -> VinfastContext : Insert new user
+    activate VinfastContext
+    VinfastContext -> Database : Execute insert
+    activate Database
+    Database --> VinfastContext : Insert success
+    deactivate Database
+    VinfastContext --> UsersDAO : Insert success
+    deactivate VinfastContext
+    UsersDAO --> AuthController : User added
+    deactivate UsersDAO
+
+    AuthController -> RegisterView : HTTP 200 OK (Register successfully)
+    deactivate AuthController
+end
+deactivate RegisterView
+
+== Verify OTP ==
+User -> RegisterView : Request OTP verification
+activate RegisterView
+RegisterView -> AuthController : POST /api/Auth/VerifyOTP
+activate AuthController
+
+AuthController -> AuthController : Check if email and OTP are provided
+alt Missing email or OTP
+    AuthController --> RegisterView : HTTP 400 Bad Request (Email and OTP are required)
+    deactivate AuthController
+else Provided email and OTP
+    AuthController -> AuthController : VerifyOTPCode(email, OTP)
+    AuthController -> VinfastContext : Query OTP from cache
+    activate VinfastContext
+    VinfastContext -> Database : Check OTP validity
+    activate Database
+    Database --> VinfastContext : Return OTP validity
+    deactivate Database
+    VinfastContext --> AuthController : Return OTP validity
+    deactivate VinfastContext
+
+    alt OTP valid
+        AuthController --> RegisterView : HTTP 200 OK (OTP verified successfully)
+    else OTP invalid
+        AuthController --> RegisterView : HTTP 400 Bad Request (Invalid or expired OTP)
+    end
+    deactivate AuthController
+end
+deactivate RegisterView
+@enduml

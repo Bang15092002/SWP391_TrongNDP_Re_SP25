@@ -1,0 +1,183 @@
+@startuml
+participant User
+participant AccessoryDetailView
+participant CartController
+participant HttpContext
+participant JwtTokenHelper
+participant ResponseHelper
+participant AccessoriesDAO
+participant CartDAO
+participant VinfastContext
+participant Database
+participant AutoMapper
+
+User ->> AccessoryDetailView: Selects accessory to add to cart
+activate User
+activate AccessoryDetailView
+AccessoryDetailView ->> CartController: POST /api/cart/addAccessoryToCart (CartItemDTO, Authorization: Bearer <token>)
+activate CartController
+CartController ->> HttpContext: Get Authorization Header
+activate HttpContext
+HttpContext -->> CartController: Authorization Header
+deactivate HttpContext
+alt Authorization Header is missing or invalid
+    CartController ->> ResponseHelper: Response(401, "Authentication token is missing or invalid", false, null)
+    activate ResponseHelper
+    ResponseHelper -->> CartController: Response
+    deactivate ResponseHelper
+    CartController -->> AccessoryDetailView: 401 Unauthorized
+    AccessoryDetailView -->> User: Display error
+
+else Authorization Header is valid
+
+    CartController ->> JwtTokenHelper: GetUserClaims(token)
+    activate JwtTokenHelper
+    JwtTokenHelper -->> CartController: Claims
+    deactivate JwtTokenHelper
+    alt Claims are invalid
+        CartController ->> ResponseHelper: Response(401, "Authentication token is invalid", false, null)
+        activate ResponseHelper
+        ResponseHelper -->> CartController: Response
+        deactivate ResponseHelper
+        CartController -->> AccessoryDetailView: 401 Unauthorized
+        AccessoryDetailView -->> User: Display error
+
+    else Claims are valid
+        alt User role is not authorized
+            CartController ->> ResponseHelper: Response(401, "Unauthorized access denied", false, null)
+            activate ResponseHelper
+            ResponseHelper -->> CartController: Response
+            deactivate ResponseHelper
+            CartController -->> AccessoryDetailView: 401 Unauthorized
+            AccessoryDetailView -->> User: Display error
+
+        else User role is authorized
+            CartController ->> AccessoriesDAO: GetAccessoryById(cartItemDTO.ProductId)
+            activate AccessoriesDAO
+            AccessoriesDAO ->> VinfastContext: Query Accessory
+            activate VinfastContext
+            VinfastContext ->> Database: Retrieve Accessory data
+            activate Database
+            Database -->> VinfastContext: Accessory data
+            deactivate Database
+            VinfastContext -->> AccessoriesDAO: Accessory
+            deactivate VinfastContext
+            AccessoriesDAO -->> CartController: Accessory
+            deactivate AccessoriesDAO
+            alt Accessory is not found or is deleted
+                CartController ->> ResponseHelper: Response(404, "Product not found", false, null)
+                activate ResponseHelper
+                ResponseHelper -->> CartController: Response
+                deactivate ResponseHelper
+                CartController -->> AccessoryDetailView: 404 Not Found
+                AccessoryDetailView -->> User: Display error
+
+            else Accessory is valid
+                alt Accessory is out of stock
+                    CartController ->> ResponseHelper: Response(400, "Accessory is out of stock", false, null)
+                    activate ResponseHelper
+                    ResponseHelper -->> CartController: Response
+                    deactivate ResponseHelper
+                    CartController -->> AccessoryDetailView: 400 Bad Request
+                    AccessoryDetailView -->> User: Display error
+
+                else Accessory is in stock
+                    CartController ->> CartDAO: GetCartItemByProductIdAndUserId(cartItemDTO.ProductId, cartItemDTO.UserId)
+                    activate CartDAO
+                    CartDAO ->> VinfastContext: Query CartItem
+                    activate VinfastContext
+                    VinfastContext ->> Database: Retrieve CartItem data
+                    activate Database
+                    Database -->> VinfastContext: CartItem data
+                    deactivate Database
+                    VinfastContext -->> CartDAO: CartItem
+                    deactivate VinfastContext
+                    CartDAO -->> CartController: CartItem
+                    deactivate CartDAO
+                    alt CartItem exists
+                        CartController ->> CartItem: Update Quantity
+                        CartController ->> CartDAO: UpdateCartItem(cartItemExist)
+                        activate CartDAO
+                        CartDAO ->> VinfastContext: Update CartItem
+                        activate VinfastContext
+                        VinfastContext ->> Database: Save changes
+                        activate Database
+                        Database -->> VinfastContext: Success/Failure
+                        deactivate Database
+                        VinfastContext -->> CartDAO: Success/Failure
+                        deactivate VinfastContext
+                        alt Update successful
+                            CartDAO -->> CartController: true
+                            deactivate CartDAO
+                            CartController ->> ResponseHelper: Response(200, "Updated cart successfully", true, null)
+                            activate ResponseHelper
+                            ResponseHelper -->> CartController: Response
+                            deactivate ResponseHelper
+                            CartController -->> AccessoryDetailView: 200 OK
+                            AccessoryDetailView -->> User: Display success
+
+                        else Update failed
+                            CartDAO -->> CartController: false
+                            deactivate CartDAO
+                            CartController ->> ResponseHelper: Response(400, "Error: can't update cart", false, null)
+                            activate ResponseHelper
+                            ResponseHelper -->> CartController: Response
+                            deactivate ResponseHelper
+                            CartController -->> AccessoryDetailView: 400 Bad Request
+                            AccessoryDetailView -->> User: Display error
+
+                        end
+                    else CartItem does not exist
+                        CartController ->> AutoMapper: ToCartItem(cartItemDTO)
+                        activate AutoMapper
+                        AutoMapper -->> CartController: newCartItem
+                        deactivate AutoMapper
+                        CartController ->> CartDAO: AddCartItem(newCartItem)
+                        activate CartDAO
+                        CartDAO ->> VinfastContext: Insert CartItem
+                        activate VinfastContext
+                        VinfastContext ->> Database: Save changes
+                        activate Database
+                        Database -->> VinfastContext: Success/Failure
+                        deactivate Database
+                        VinfastContext -->> CartDAO: Success/Failure
+                        deactivate VinfastContext
+                        alt Add failed
+                            CartDAO -->> CartController: false
+                            deactivate CartDAO
+                            CartController ->> ResponseHelper: Response(400, "Error: can't add accessory to cart", false, null)
+                            activate ResponseHelper
+                            ResponseHelper -->> CartController: Response
+                            deactivate ResponseHelper
+                            CartController -->> AccessoryDetailView: 400 Bad Request
+                            AccessoryDetailView -->> User: Display error
+                        else Add successful
+                            CartDAO -->> CartController: true
+                            deactivate CartDAO
+                            CartController ->> ResponseHelper: Response(200, "Add accessory to cart successfully", true, null)
+                            activate ResponseHelper
+                            ResponseHelper -->> CartController: Response
+                            deactivate ResponseHelper
+                            CartController -->> AccessoryDetailView: 200 OK
+                            deactivate CartController
+                            AccessoryDetailView -->> User: Display success
+                            deactivate AccessoryDetailView
+                            deactivate CartController
+                            deactivate User
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+alt Exception occurs
+    CartController ->> Console: WriteLine("Add accessory to cart failed: " + ex)
+    CartController ->> ResponseHelper: Response(500, "Internal server error. Please contact support.", false, null)
+    activate ResponseHelper
+    ResponseHelper -->> CartController: Response
+    deactivate ResponseHelper
+    CartController -->> AccessoryDetailView: 500 Internal Server Error
+    AccessoryDetailView -->> User: Display error
+end
+@enduml

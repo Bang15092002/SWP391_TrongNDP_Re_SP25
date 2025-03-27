@@ -1,0 +1,38 @@
+@startuml
+package "CarManagement" {
+    package "back-end" {
+        package "WebAPI" {
+            package "Controllers" {
+            }
+            package "DAO" {
+            }
+            package "DataContext" {
+            }
+            package "DTO" {
+            }
+            package "Images" {
+            }
+            package "Migrations" {
+            }
+            package "Models" {
+            }
+            package "Utils" {
+            }
+        }
+    }
+    package "front-end" {
+        
+        package "public" {
+            
+        }
+        package "src" {
+            package "components" {
+            }
+            package "pages" {
+            }
+            package "services" {
+            }
+        }
+    }
+}
+@enduml

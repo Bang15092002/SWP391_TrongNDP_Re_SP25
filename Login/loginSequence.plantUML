@@ -36,7 +36,7 @@ activate AuthController
 
 alt Login failed
     AuthController --> LoginView: 10. 404 Not Found (Email not found or Incorrect password)
-    LoginView -> Customer: 11. Show error message
+    LoginView --> Customer: 11. Show error message
 
 else Login successful
     AuthController -> AutoMapper: 12. Map CustomerCustomerDAO to CustomerCustomerDTO
@@ -50,8 +50,8 @@ else Login successful
     JwtTokenHelper --> AuthController: 15. token
     deactivate JwtTokenHelper
 
-    AuthController -> LoginView: 16. 200 OK (Login successfully, token)
-    LoginView -> Customer: 17. Redirect to dashboard/ home page
+    AuthController --> LoginView: 16. 200 OK (Login successfully, token)
+    LoginView --> Customer: 17. Redirect to dashboard/ home page
 
 end
 else Catch Exception

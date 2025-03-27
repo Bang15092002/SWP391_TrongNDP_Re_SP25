@@ -21,7 +21,7 @@ alt try
             activate JwtTokenHelper
             JwtTokenHelper --> AdminCarsController: (isSuccess = false, errorMessage)
             AdminCarsController --> ManageCarView: Return Unauthorized(401, errorMessage)
-            ManageCarView -> User: Display error message
+            ManageCarView --> User: Display error message
             
         else Authentication successfully
             JwtTokenHelper --> AdminCarsController: (isSuccess = true, claims)
@@ -45,14 +45,14 @@ alt try
 
             alt No Cars Found
                 AdminCarsController --> ManageCarView: Return NotFound(404, "No car found")
-                ManageCarView -> User: Display error message
+                ManageCarView --> User: Display error message
             else Cars Found
                 AdminCarsController -> AutoMapper: ToAdminCarDTOList(adminCars)
                 activate AutoMapper
                 AutoMapper --> AdminCarsController: Return DTO List
                 deactivate AutoMapper
                 AdminCarsController --> ManageCarView: Return Ok(200, "Get all cars successfully", DTOs)
-                ManageCarView -> User: Display Display error message
+                ManageCarView --> User: Show list cars
             end
         
     end
@@ -60,7 +60,7 @@ alt try
 else Catch Exception
     AdminCarsController --> ManageCarView: Return BadRequest(400, exception.Message)
     deactivate AdminCarsController
-    ManageCarView -> User: Display Display error message
+    ManageCarView --> User: Display Display error message
 deactivate ManageCarView
 end
 

@@ -1,67 +1,94 @@
 @startuml
 actor User
-participant ManageCarView
-participant AdminCarsController
+participant InformationResultPaymentView
+participant VNPayService
+participant CarDepositView
+participant PaymentController
 participant AutoMapper
 participant JwtTokenHelper
+participant VnpayPayment
 participant CarsDAO
+participant TransactionDAO
 participant VinfastContext
 database Database
 
 
-User -> ManageCarView: Access admin manage car page
-activate ManageCarView
+User -> CarDepositView: 1. Access car detail view
+activate CarDepositView
 
-    ManageCarView -> AdminCarsController: Call "/api/AdminCars"
+    CarDepositView -> PaymentController: 2. post "/api/CreatePaymentUrl" http Body: depositInfo
 alt try
-    activate AdminCarsController
+    activate PaymentController
 
-    AdminCarsController -> JwtTokenHelper: AuthenticateAndAuthorize(HttpContext, 1)
+    PaymentController -> JwtTokenHelper: 3. AuthenticateAndAuthorize(HttpContext, 2)
         alt Authentication Failure
             activate JwtTokenHelper
-            JwtTokenHelper --> AdminCarsController: (isSuccess = false, errorMessage)
-            AdminCarsController --> ManageCarView: Return Unauthorized(401, errorMessage)
-            ManageCarView -> User: Display error message
+            JwtTokenHelper --> PaymentController: 4. (isSuccess = false, errorMessage)
+            PaymentController --> CarDepositView: 5. Return Unauthorized(401, errorMessage)
+            CarDepositView --> User: 6. Display error message
             
         else Authentication successfully
-            JwtTokenHelper --> AdminCarsController: (isSuccess = true, claims)
+            JwtTokenHelper --> PaymentController: 7. (isSuccess = true, claims)
             deactivate JwtTokenHelper
             
-            AdminCarsController -> CarsDAO: GetAllCars()
-            activate CarsDAO
-            
-            CarsDAO -> VinfastContext: GetAllCars()
-            activate VinfastContext
-            
-            VinfastContext -> Database: Execute Query
-            activate Database
-            Database --> VinfastContext: Return Cars Data
-            deactivate Database
-            
-            VinfastContext --> CarsDAO: Return Cars Data
-            deactivate VinfastContext
-            CarsDAO --> AdminCarsController: Return Cars List
-            deactivate CarsDAO
+            PaymentController -> VnpayPayment: 8. CreatePaymentUrl(depositInfo);
+            activate VnpayPayment
+            VnpayPayment -> PaymentController: 9. Return paymentUrl
+            deactivate VnpayPayment
+            PaymentController --> CarDepositView: 10. Return Ok(200, paymentUrl)
+            CarDepositView -> VNPayService: 11. Request paymentUrl (Save local storage invoiceInfo)
+            activate VNPayService
+            VNPayService --> InformationResultPaymentView: 12. Return query param of result payment
+            deactivate VNPayService
+            activate InformationResultPaymentView
+            InformationResultPaymentView -> PaymentController: 13. post "/api/createInvoice" http Body: invoiceInfo
+            alt try
+                PaymentController -> JwtTokenHelper: 14. AuthenticateAndAuthorize(HttpContext, 2)
+                activate JwtTokenHelper
+                alt Authentication Failure 
+                    JwtTokenHelper --> PaymentController: 15. (isSuccess = false, errorMessage)
+                    PaymentController --> InformationResultPaymentView: 16. Return Unauthorized(401, errorMessage)
+                    InformationResultPaymentView --> User: 17. Display error message
+                else Authentication successfully 
+                    JwtTokenHelper --> PaymentController: 18. (isSuccess = true, claims)
+                    deactivate JwtTokenHelper
+                    alt paymentInfo is Failed (VNPayResponseCode != 00)
+                        PaymentController --> InformationResultPaymentView: 19. Return BadRequest(400, "Payment info is invalid")
+                        InformationResultPaymentView --> User: 20. Display fail payment message
+                    else paymentInfo is successfully (VNPayResponseCode == 00)
+                        PaymentController -> TransactionDAO: 21. CreateInvoice(invoiceInfo)
+                        activate TransactionDAO
+                        TransactionDAO -> VinfastContext: 22. Save invoiceInfo to database
+                        activate VinfastContext
+                        VinfastContext -> Database: 23. Execute Query
+                        activate Database
+                        Database --> VinfastContext: 24. Return invoiceInfo
+                        deactivate Database
+                        VinfastContext --> TransactionDAO: 25. Return invoiceInfo
+                        deactivate VinfastContext
+                        TransactionDAO --> PaymentController: 26. Return invoiceInfo
+                        deactivate TransactionDAO
+                        PaymentController -> AutoMapper: 27. ToInvoiceDTO(invoiceInfo)
+                        activate AutoMapper
+                        AutoMapper --> PaymentController: 28. Return DTO
+                        deactivate AutoMapper
 
-            alt No Cars Found
-                AdminCarsController --> ManageCarView: Return NotFound(404, "No car found")
-                ManageCarView -> User: Display error message
-            else Cars Found
-                AdminCarsController -> AutoMapper: ToAdminCarDTOList(adminCars)
-                activate AutoMapper
-                AutoMapper --> AdminCarsController: Return DTO List
-                deactivate AutoMapper
-                AdminCarsController --> ManageCarView: Return Ok(200, "Get all cars successfully", DTOs)
-                ManageCarView -> User: Display Display error message
+                        PaymentController --> InformationResultPaymentView: 29. Return Ok(200, invoiceInfo)
+                        InformationResultPaymentView --> User: 30. Display success payment message
+
+                    end
+                end
+            else Catch Exception
+                PaymentController --> InformationResultPaymentView: 31. Return (500, Internal Server Error)
+                InformationResultPaymentView --> User: 32. Display Display error message
+                deactivate InformationResultPaymentView
             end
-        
-    end
-
+        end
 else Catch Exception
-    AdminCarsController --> ManageCarView: Return BadRequest(400, exception.Message)
-    deactivate AdminCarsController
-    ManageCarView -> User: Display Display error message
-deactivate ManageCarView
+    PaymentController --> CarDepositView: 33. Return (500, Internal Server Error)
+    deactivate PaymentController
+    CarDepositView --> User: 34. Display Display error message
+deactivate CarDepositView
 end
 
 

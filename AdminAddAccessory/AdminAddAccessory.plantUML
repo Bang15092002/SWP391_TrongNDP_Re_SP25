@@ -1,0 +1,93 @@
+@startuml
+actor Admin
+participant AddAccessoryView
+participant AdminAccessoriesController
+participant JwtTokenHelper
+participant AccessoriesDAO
+participant VinfastContext
+database Database
+
+
+Admin -> AddAccessoryView: 1. Access admin add accessory page
+activate AddAccessoryView
+
+AddAccessoryView -> AdminAccessoriesController: 2. POST "/api/adminCreateAccessory" (accessoryData)
+alt try
+    activate AdminAccessoriesController
+    AdminAccessoriesController -> JwtTokenHelper: 3. AuthenticateAndAuthorize(HttpContext, 1)
+    alt Authentication Failure
+        activate JwtTokenHelper
+        JwtTokenHelper --> AdminAccessoriesController: 4. (isSuccess = false, errorMessage)
+        AdminAccessoriesController --> AddAccessoryView: 5. Return Unauthorized(401, errorMessage)
+        AddAccessoryView --> Admin: 6. Display error message
+        
+    else Authentication successfully
+        JwtTokenHelper --> AdminAccessoriesController: 7. (isSuccess = true, claims)
+        deactivate JwtTokenHelper
+        ' complete check authentication
+        AdminAccessoriesController -> AccessoriesDAO: 8. GetAccessoryByName(accessoryData.Model)
+        activate AccessoriesDAO
+        
+        AccessoriesDAO -> VinfastContext: 9. GetAccessoryByName(accessoryData.Model)
+        activate VinfastContext
+        
+        VinfastContext -> Database: 10. Execute Query
+        activate Database
+        Database --> VinfastContext: 11. Return Accessory Data (Or null)
+        deactivate Database
+        
+        VinfastContext --> AccessoriesDAO: 12. Return Accessory Data (Or null)
+        deactivate VinfastContext
+        AccessoriesDAO --> AdminAccessoriesController: 13. Return detail accessory (or null)
+        deactivate AccessoriesDAO
+
+        alt Accessory is existed (AccessoryData != null)
+            AdminAccessoriesController --> AddAccessoryView: 14. Return BadRequest(400, "Accessory is existed")
+            AddAccessoryView --> Admin: 15.Display error message
+        else Accessory not found (AccessoryData == null)
+            AdminAccessoriesController -> AccessoriesDAO: 16. CreateAccessory(accessoryData)
+            Activate AccessoriesDAO
+            AccessoriesDAO -> VinfastContext: 17. CreateAccessory(accessoryData)
+            activate VinfastContext
+            VinfastContext -> Database: 18. Execute Query
+            activate Database
+            Database --> VinfastContext: 19. Return Accessory Data (Or null)
+            deactivate Database
+            VinfastContext --> AccessoriesDAO: 20. Return Accessory Data (Or null)
+            deactivate VinfastContext
+            AccessoriesDAO --> AdminAccessoriesController: 21. Return new accessory data (or null)
+            deactivate AccessoriesDAO
+            activate AdminAccessoriesController
+            alt creating accessory failed (newAccessoryData == null)
+                AdminAccessoriesController --> AddAccessoryView: 22. BadRequest(400, "Create accessory failed")
+                AddAccessoryView --> Admin: 23. Display error message
+            else Create accessory successfully (newAccessoryData != null)
+                AdminAccessoriesController -> AccessoriesDAO: 24. CreateImportExportHistory()
+                deactivate AdminAccessoriesController
+                activate AccessoriesDAO
+                AccessoriesDAO -> VinfastContext: 25. CreateImportExportHistory()
+                activate VinfastContext
+                VinfastContext -> Database: 26. Execute Query
+                activate Database
+                Database --> VinfastContext: 27. Return ImportExportHistory Data (Or null)
+                deactivate Database
+                VinfastContext --> AccessoriesDAO: 28. Return ImportExportHistory Data (Or null)
+                deactivate VinfastContext
+                AccessoriesDAO --> AdminAccessoriesController: 29. Return ImportExportHistory Data (Or null)
+                deactivate AccessoriesDAO
+                AdminAccessoriesController --> AddAccessoryView: 30. Return Ok(200, "Create accessory successfully")
+                AddAccessoryView --> Admin: 31. Display success message
+            end
+        end
+    end
+else Catch Exception
+    AdminAccessoriesController --> AddAccessoryView: Return BadRequest(400, exception.Message)
+    deactivate AdminAccessoriesController
+    AddAccessoryView --> Admin: Display Display error message
+deactivate AddAccessoryView
+end
+
+
+
+
+@enduml

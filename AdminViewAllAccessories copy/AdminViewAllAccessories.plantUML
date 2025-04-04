@@ -1,67 +1,66 @@
 @startuml
 actor User
-participant ManageCarView
-participant AdminCarsController
+participant ManageAccessoryView
+participant AdminAccessoriesController
 participant AutoMapper
 participant JwtTokenHelper
-participant CarsDAO
+participant AccessoriesDAO
 participant VinfastContext
 database Database
 
+User -> ManageAccessoryView: Access admin manage accessories page
+activate ManageAccessoryView
 
-User -> ManageCarView: Access admin manage car page
-activate ManageCarView
-
-    ManageCarView -> AdminCarsController: Call "/api/AdminCars"
+    ManageAccessoryView -> AdminAccessoriesController: Call "/api/AdminAccessories"
 alt try
-    activate AdminCarsController
+    activate AdminAccessoriesController
 
-    AdminCarsController -> JwtTokenHelper: AuthenticateAndAuthorize(HttpContext, 1)
+    AdminAccessoriesController -> JwtTokenHelper: AuthenticateAndAuthorize(HttpContext, 1)
         alt Authentication Failure
             activate JwtTokenHelper
-            JwtTokenHelper --> AdminCarsController: (isSuccess = false, errorMessage)
-            AdminCarsController --> ManageCarView: Return Unauthorized(401, errorMessage)
-            ManageCarView -> User: Display error message
+            JwtTokenHelper --> AdminAccessoriesController: (isSuccess = false, errorMessage)
+            AdminAccessoriesController --> ManageAccessoryView: Return Unauthorized(401, errorMessage)
+            ManageAccessoryView --> User: Display error message
             
         else Authentication successfully
-            JwtTokenHelper --> AdminCarsController: (isSuccess = true, claims)
+            JwtTokenHelper --> AdminAccessoriesController: (isSuccess = true, claims)
             deactivate JwtTokenHelper
             
-            AdminCarsController -> CarsDAO: GetAllCars()
-            activate CarsDAO
+            AdminAccessoriesController -> AccessoriesDAO: GetAllAccessories()
+            activate AccessoriesDAO
             
-            CarsDAO -> VinfastContext: Query Cars
+            AccessoriesDAO -> VinfastContext: GetAllAccessories()
             activate VinfastContext
             
             VinfastContext -> Database: Execute Query
             activate Database
-            Database --> VinfastContext: Return Cars Data
+            Database --> VinfastContext: Return Accessories Data
             deactivate Database
             
-            VinfastContext --> CarsDAO: Return Cars Data
+            VinfastContext --> AccessoriesDAO: Return Accessories Data
             deactivate VinfastContext
-            CarsDAO --> AdminCarsController: Return Cars List
-            deactivate CarsDAO
+            AccessoriesDAO --> AdminAccessoriesController: Return Accessories List
+            deactivate AccessoriesDAO
 
-            alt No Cars Found
-                AdminCarsController --> ManageCarView: Return NotFound(404, "No car found")
-                ManageCarView -> User: Display Display error message
-            else Cars Found
-                AdminCarsController -> AutoMapper: ToAdminCarDTOList(adminCars)
+            alt No Accessories Found
+                AdminAccessoriesController --> ManageAccessoryView: Return NotFound(404, "No accessories found")
+                ManageAccessoryView --> User: Display Display error message
+            else Accessories Found
+                AdminAccessoriesController -> AutoMapper: ToAdminAccessoryDTOList(adminAccessories)
                 activate AutoMapper
-                AutoMapper --> AdminCarsController: Return DTO List
+                AutoMapper --> AdminAccessoriesController: Return DTO List
                 deactivate AutoMapper
-                AdminCarsController --> ManageCarView: Return Ok(200, "Get all cars successfully", DTOs)
-                ManageCarView -> User: Display Display error message
+                AdminAccessoriesController --> ManageAccessoryView: Return Ok(200, "Get all accessoriess successfully", DTOs)
+                ManageAccessoryView --> User: Display Display error message
             end
         
     end
 
 else Catch Exception
-    AdminCarsController --> ManageCarView: Return BadRequest(400, exception.Message)
-    deactivate AdminCarsController
-    ManageCarView -> User: Display Display error message
-deactivate ManageCarView
+    AdminAccessoriesController --> ManageAccessoryView: Return BadRequest(400, exception.Message)
+    deactivate AdminAccessoriesController
+    ManageAccessoryView --> User: Display Display error message
+deactivate ManageAccessoryView
 end
 
 

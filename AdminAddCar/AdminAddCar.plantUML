@@ -1,62 +1,93 @@
 @startuml
-class AdminCarsController {
-    +AdminGetAllCars() : Task<ActionResult>
-}
+actor Admin
+participant AddCarView
+participant AdminCarsController
+participant JwtTokenHelper
+participant CarsDAO
+participant VinfastContext
+database Database
 
-class CarsDAO {
-    +GetInstance() : CarsDAO
-    +GetAllCars() : Task<List<Cars>>
-}
 
-class JwtTokenHelper {
-    +AuthenticateAndAuthorize(HttpContext httpContext, int roleId) : (bool, string?, Dictionary<string, object>?)
-}
+Admin -> AddCarView: 1. Access admin add car page
+activate AddCarView
 
-class ResponseHelper {
-    +ResponseError(int statusCode, string message, bool success, object? data) : object
-    +Response(int statusCode, string message, bool success, object? data) : object
-}
+AddCarView -> AdminCarsController: 2. POST "/api/adminCreateCar" (carData)
+alt try
+    activate AdminCarsController
+    AdminCarsController -> JwtTokenHelper: 3. AuthenticateAndAuthorize(HttpContext, 1)
+    alt Authentication Failure
+        activate JwtTokenHelper
+        JwtTokenHelper --> AdminCarsController: 4. (isSuccess = false, errorMessage)
+        AdminCarsController --> AddCarView: 5. Return Unauthorized(401, errorMessage)
+        AddCarView --> Admin: 6. Display error message
+        
+    else Authentication successfully
+        JwtTokenHelper --> AdminCarsController: 7. (isSuccess = true, claims)
+        deactivate JwtTokenHelper
+        ' complete check authentication
+        AdminCarsController -> CarsDAO: 8. GetCarByName(carData.Model)
+        activate CarsDAO
+        
+        CarsDAO -> VinfastContext: 9. GetCarByName(carData.Model)
+        activate VinfastContext
+        
+        VinfastContext -> Database: 10. Execute Query
+        activate Database
+        Database --> VinfastContext: 11. Return Car Data (Or null)
+        deactivate Database
+        
+        VinfastContext --> CarsDAO: 12. Return Car Data (Or null)
+        deactivate VinfastContext
+        CarsDAO --> AdminCarsController: 13. Return detail car (or null)
+        deactivate CarsDAO
 
-class AutoMapper {
-    +ToAdminCarDTOList(List<Cars> cars) : List<AdminCarDTO>
-}
+        alt Car is existed (CarData != null)
+            AdminCarsController --> AddCarView: 14. Return BadRequest(400, "Car is existed")
+            AddCarView --> Admin: 15.Display error message
+        else Car not found (CarData == null)
+            AdminCarsController -> CarsDAO: 16. CreateCar(carData)
+            Activate CarsDAO
+            CarsDAO -> VinfastContext: 17. CreateCar(carData)
+            activate VinfastContext
+            VinfastContext -> Database: 18. Execute Query
+            activate Database
+            Database --> VinfastContext: 19. Return Car Data (Or null)
+            deactivate Database
+            VinfastContext --> CarsDAO: 20. Return Car Data (Or null)
+            deactivate VinfastContext
+            CarsDAO --> AdminCarsController: 21. Return new car data (or null)
+            deactivate CarsDAO
+            activate AdminCarsController
+            alt creating car failed (newCarData == null)
+                AdminCarsController --> AddCarView: 22. BadRequest(400, "Create car failed")
+                AddCarView --> Admin: 23. Display error message
+            else Create car successfully (newCarData != null)
+                AdminCarsController -> CarsDAO: 24. CreateImportExportHistory()
+                deactivate AdminCarsController
+                activate CarsDAO
+                CarsDAO -> VinfastContext: 25. CreateImportExportHistory()
+                activate VinfastContext
+                VinfastContext -> Database: 26. Execute Query
+                activate Database
+                Database --> VinfastContext: 27. Return ImportExportHistory Data (Or null)
+                deactivate Database
+                VinfastContext --> CarsDAO: 28. Return ImportExportHistory Data (Or null)
+                deactivate VinfastContext
+                CarsDAO --> AdminCarsController: 29. Return ImportExportHistory Data (Or null)
+                deactivate CarsDAO
+                AdminCarsController --> AddCarView: 30. Return Ok(200, "Create car successfully")
+                AddCarView --> Admin: 31. Display success message
+            end
+        end
+    end
+else Catch Exception
+    AdminCarsController --> AddCarView: Return BadRequest(400, exception.Message)
+    deactivate AdminCarsController
+    AddCarView --> Admin: Display Display error message
+deactivate AddCarView
+end
 
-class Cars {
-    +Id : int
-    +Name : string
-    +Seats : int
-    +Image : string
-    +SpecImage : string
-    +ImageBanner : string
-    +PriceBatteryRental : double
-    +PriceBatteryOwn : double
-    +PriceDeposite : double
-    +Quantity : int
-    +IsDeleted : bool
-    +IsShowed : bool
-}
 
-class AdminCarDTO {
-    +Id : int
-    +Model : string
-    +Seat : int
-    +Image : string
-    +SpecImage : string
-    +BannerImage : string
-    +PriceBatteryOwn : double
-    +PriceBatteryRental : double
-    +PriceDeposite : double
-    +Quantity : int
-    +IsDeleted : bool
-    +IsShowed : bool
-}
 
-AdminCarsController --> JwtTokenHelper : AuthenticateAndAuthorize()
-AdminCarsController --> CarsDAO : GetInstance()
-AdminCarsController --> CarsDAO : GetAllCars()
-AdminCarsController --> AutoMapper : ToAdminCarDTOList()
-AdminCarsController --> ResponseHelper : ResponseError()
-AdminCarsController --> ResponseHelper : Response()
-CarsDAO --> Cars : Entity
-AutoMapper --> AdminCarDTO : DTO
+
 @enduml

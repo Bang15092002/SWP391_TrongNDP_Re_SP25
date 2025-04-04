@@ -2,7 +2,7 @@
 actor Customer
 participant InformationResultPaymentView
 participant VNPayService
-participant CarDepositView
+participant AccessoryPaymentView
 participant PaymentController
 participant AutoMapper
 participant JwtTokenHelper
@@ -12,10 +12,10 @@ participant VinfastContext
 database Database
 
 
-Customer -> CarDepositView: 1. Access car detail view
-activate CarDepositView
+Customer -> AccessoryPaymentView: 1. Access paymentview view
+activate AccessoryPaymentView
 
-    CarDepositView -> PaymentController: 2. post "/api/CreatePaymentUrl" http Body: depositInfo
+    AccessoryPaymentView -> PaymentController: 2. post "/api/CreatePaymentUrl" http Body: paymentInfo
 alt try
     activate PaymentController
 
@@ -23,19 +23,19 @@ alt try
         alt Authentication Failure
             activate JwtTokenHelper
             JwtTokenHelper --> PaymentController: 4. (isSuccess = false, errorMessage)
-            PaymentController --> CarDepositView: 5. Return Unauthorized(401, errorMessage)
-            CarDepositView --> Customer: 6. Display error message
+            PaymentController --> AccessoryPaymentView: 5. Return Unauthorized(401, errorMessage)
+            AccessoryPaymentView --> Customer: 6. Display error message
             
         else Authentication successfully
             JwtTokenHelper --> PaymentController: 7. (isSuccess = true, claims)
             deactivate JwtTokenHelper
             
-            PaymentController -> VnpayPayment: 8. CreatePaymentUrl(depositInfo);
+            PaymentController -> VnpayPayment: 8. CreatePaymentUrl(paymentInfo);
             activate VnpayPayment
             VnpayPayment -> PaymentController: 9. Return paymentUrl
             deactivate VnpayPayment
-            PaymentController --> CarDepositView: 10. Return Ok(200, paymentUrl)
-            CarDepositView -> VNPayService: 11. Request paymentUrl (Save local storage invoiceInfo)
+            PaymentController --> AccessoryPaymentView: 10. Return Ok(200, paymentUrl)
+            AccessoryPaymentView -> VNPayService: 11. Request paymentUrl (Save local storage invoiceInfo)
             activate VNPayService
             VNPayService --> InformationResultPaymentView: 12. Return query param of result payment
             deactivate VNPayService
@@ -84,10 +84,10 @@ alt try
             end
         end
 else Catch Exception
-    PaymentController --> CarDepositView: 33. Return (500, Internal Server Error)
+    PaymentController --> AccessoryPaymentView: 33. Return (500, Internal Server Error)
     deactivate PaymentController
-    CarDepositView --> Customer: 34. Display Display error message
-deactivate CarDepositView
+    AccessoryPaymentView --> Customer: 34. Display Display error message
+deactivate AccessoryPaymentView
 end
 
 

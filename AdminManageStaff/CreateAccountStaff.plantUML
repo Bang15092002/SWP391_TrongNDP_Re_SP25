@@ -1,0 +1,62 @@
+@startuml
+actor Admin
+participant ManageAccountStaffView
+participant AuthController
+participant JwtTokenHelper
+participant UsersDAO
+participant VinfastContext
+database Database
+
+
+Admin -> ManageAccountStaffView: 1. Access create staff account admin page
+activate ManageAccountStaffView
+
+    ManageAccountStaffView -> AuthController: 2. Post "/api/Auth/createAccountStaff"
+alt try
+    activate AuthController
+
+    AuthController -> JwtTokenHelper: 3. AuthenticateAndAuthorize(HttpContext, 1)
+        alt Authentication Failure
+            activate JwtTokenHelper
+            JwtTokenHelper --> AuthController: 4. (isSuccess = false, errorMessage)
+            AuthController --> ManageAccountStaffView: 5. Return Unauthorized(401, errorMessage)
+            ManageAccountStaffView --> Admin: 6. Display error message
+            
+        else Authentication successfully
+            JwtTokenHelper --> AuthController: 7. (isSuccess = true, claims)
+            deactivate JwtTokenHelper
+            
+            AuthController -> UsersDAO: 8. AddUser(newStaff)
+            activate UsersDAO
+            
+            UsersDAO -> VinfastContext: 9. AddUser(newStaff)
+            activate VinfastContext
+            
+            VinfastContext -> Database: 10. Execute Query
+            activate Database
+            Database --> VinfastContext: 11. Return staff account 
+            deactivate Database
+            
+            VinfastContext --> UsersDAO: 12. Return staff account 
+            deactivate VinfastContext
+            UsersDAO --> AuthController: 13. Return staff account 
+            deactivate UsersDAO
+
+           
+            AuthController --> ManageAccountStaffView: 14. Return Ok(200, "add new staff account successfully", DTOs)
+            ManageAccountStaffView --> Admin: 15.  Result of add new staff account
+            
+        
+    end
+
+else Catch Exception
+    AuthController --> ManageAccountStaffView: 16. Return BadRequest(400, exception.Message)
+    deactivate AuthController
+    ManageAccountStaffView --> Admin: 17. Display Display error message
+deactivate ManageAccountStaffView
+end
+
+
+
+
+@enduml

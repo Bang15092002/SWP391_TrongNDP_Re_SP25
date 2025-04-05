@@ -1,0 +1,70 @@
+@startuml
+actor Admin
+participant ManageImportExportHistoryView
+participant AdminImportExportProductController
+participant AutoMapper
+participant JwtTokenHelper
+participant TransactionsDAO
+participant VinfastContext
+database Database
+
+
+Admin -> ManageImportExportHistoryView: 1. Access manage history admin page
+activate ManageImportExportHistoryView
+
+    ManageImportExportHistoryView -> AdminImportExportProductController: 2. Get "/api/AdminImportExportProduct/getAllImportExportProductHistory"
+alt try
+    activate AdminImportExportProductController
+
+    AdminImportExportProductController -> JwtTokenHelper: 3. AuthenticateAndAuthorize(HttpContext, 1)
+        alt Authentication Failure
+            activate JwtTokenHelper
+            JwtTokenHelper --> AdminImportExportProductController: 4. (isSuccess = false, errorMessage)
+            AdminImportExportProductController --> ManageImportExportHistoryView: 5. Return Unauthorized(401, errorMessage)
+            ManageImportExportHistoryView --> Admin: 6. Display error message
+            
+        else Authentication successfully
+            JwtTokenHelper --> AdminImportExportProductController: 7. (isSuccess = true, claims)
+            deactivate JwtTokenHelper
+            
+            AdminImportExportProductController -> TransactionsDAO: 8. GetAllImportExportHistories()
+            activate TransactionsDAO
+            
+            TransactionsDAO -> VinfastContext: 9. GetAllImportExportHistories()
+            activate VinfastContext
+            
+            VinfastContext -> Database: 10. Execute Query
+            activate Database
+            Database --> VinfastContext: 11. Return history data
+            deactivate Database
+            
+            VinfastContext --> TransactionsDAO: 12. Return history data
+            deactivate VinfastContext
+            TransactionsDAO --> AdminImportExportProductController: 13. Return history List
+            deactivate TransactionsDAO
+
+            alt No history found
+                AdminImportExportProductController --> ManageImportExportHistoryView: 14. Return NotFound(404, "No history found")
+                ManageImportExportHistoryView --> Admin: 15. Display error message
+            else history found
+                AdminImportExportProductController -> AutoMapper: 16. ToImportExportHistoryDTOList(listImportExportHistories)
+                activate AutoMapper
+                AutoMapper --> AdminImportExportProductController: 17. Return DTO List
+                deactivate AutoMapper
+                AdminImportExportProductController --> ManageImportExportHistoryView: 18. Return Ok(200, "Get all history successfully", DTOs)
+                ManageImportExportHistoryView --> Admin: 19. Show list history
+            end
+        
+    end
+
+else Catch Exception
+    AdminImportExportProductController --> ManageImportExportHistoryView: 20. Return BadRequest(400, exception.Message)
+    deactivate AdminImportExportProductController
+    ManageImportExportHistoryView --> Admin: 21. Display Display error message
+deactivate ManageImportExportHistoryView
+end
+
+
+
+
+@enduml

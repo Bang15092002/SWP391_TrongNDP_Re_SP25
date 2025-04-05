@@ -1,0 +1,66 @@
+@startuml
+actor Staff
+participant ManageAccessoryTransactionView
+participant AdminTransactionsController
+participant AutoMapper
+participant JwtTokenHelper
+participant TransactionsDAO
+participant VinfastContext
+database Database
+
+Staff -> ManageAccessoryTransactionView: 1. Access accessory transactions page admin view
+activate ManageAccessoryTransactionView
+
+    ManageAccessoryTransactionView -> AdminTransactionsController: 2. get "/api/AdminTransactions/getAllAccessoryTransactions"
+alt try
+    activate AdminTransactionsController
+
+    AdminTransactionsController -> JwtTokenHelper: 3. AuthenticateAndAuthorize(HttpContext, 1, 2, 3)
+        alt Authentication Failure
+            activate JwtTokenHelper
+            JwtTokenHelper --> AdminTransactionsController: 4. (isSuccess = false, errorMessage)
+            AdminTransactionsController --> ManageAccessoryTransactionView: 5. return Unauthorized(401, errorMessage)
+            ManageAccessoryTransactionView --> Staff: 6. Display error message
+            
+        else Authentication successfully
+            JwtTokenHelper --> AdminTransactionsController: 7. (isSuccess = true, claims)
+            deactivate JwtTokenHelper
+            
+            AdminTransactionsController -> TransactionsDAO: 8. GetAllAccessoryTransactions()
+            activate TransactionsDAO
+            
+            TransactionsDAO -> VinfastContext: 9. GetAllAccessoryTransactions()
+            activate VinfastContext
+            
+            VinfastContext -> Database: 10. Execute query
+            activate Database
+            Database --> VinfastContext: 11. return accessory transactions data
+            deactivate Database
+            
+            VinfastContext --> TransactionsDAO: 12. return accessory transactions data
+            deactivate VinfastContext
+            TransactionsDAO --> AdminTransactionsController: 13. return accessory transactions data
+            deactivate TransactionsDAO
+
+            alt No transaction Found
+                AdminTransactionsController --> ManageAccessoryTransactionView: 14. return NotFound(404, "not found")
+                ManageAccessoryTransactionView --> Staff: 15. Display error message
+            else transactions Found
+                AdminTransactionsController -> AutoMapper: 16. ToInvoiceDTOList(invoiceDTOs)
+                activate AutoMapper
+                AutoMapper --> AdminTransactionsController: 17. return DTO 
+                deactivate AutoMapper
+                AdminTransactionsController --> ManageAccessoryTransactionView: 18. return Ok(200, "Get accessory transactions successfully", DTO)
+                ManageAccessoryTransactionView --> Staff: 19. Show accessory transactions data
+            end
+        
+    end
+
+else Catch Exception
+    AdminTransactionsController --> ManageAccessoryTransactionView: 20. return Badrequest(400, exception.Message)
+    deactivate AdminTransactionsController
+    ManageAccessoryTransactionView --> Staff: 21. Display error message
+deactivate ManageAccessoryTransactionView
+end
+
+@enduml

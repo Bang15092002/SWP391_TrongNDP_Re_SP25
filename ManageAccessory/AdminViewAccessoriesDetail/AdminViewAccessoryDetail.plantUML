@@ -1,0 +1,70 @@
+@startuml
+actor Staff
+participant AccessoriesDetailView
+participant AdminAccessoriesController
+participant AutoMapper
+participant JwtTokenHelper
+participant AccessoriesDAO
+participant VinfastContext
+database Database
+
+
+Staff -> AccessoriesDetailView: 1. Access admin view accessory detail page
+activate AccessoriesDetailView
+
+    AccessoriesDetailView -> AdminAccessoriesController: 2. get "/api/AdminAccessories/{id}"
+alt try
+    activate AdminAccessoriesController
+
+    AdminAccessoriesController -> JwtTokenHelper: 3. AuthenticateAndAuthorize(HttpContext, 1, 3)
+        alt Authentication Failure
+            activate JwtTokenHelper
+            JwtTokenHelper --> AdminAccessoriesController: 4. (isSuccess = false, errorMessage)
+            AdminAccessoriesController --> AccessoriesDetailView: 5. return Unauthorized(401, errorMessage)
+            AccessoriesDetailView --> Staff: 6. Display error message
+            
+        else Authentication successfully
+            JwtTokenHelper --> AdminAccessoriesController: 7. (isSuccess = true, claims)
+            deactivate JwtTokenHelper
+            
+            AdminAccessoriesController -> AccessoriesDAO: 8. GetAccessoryById(int id)
+            activate AccessoriesDAO
+            
+            AccessoriesDAO -> VinfastContext: 9. GetAccessoryById(int id)
+            activate VinfastContext
+            
+            VinfastContext -> Database: 10. Execute query
+            activate Database
+            Database --> VinfastContext: 11. return accessory detail data
+            deactivate Database
+            
+            VinfastContext --> AccessoriesDAO: 12. return accessory detail data
+            deactivate VinfastContext
+            AccessoriesDAO --> AdminAccessoriesController: 13. return accessory detail data
+            deactivate AccessoriesDAO
+
+            alt No Accessories Found
+                AdminAccessoriesController --> AccessoriesDetailView: 14. return NotFound(404, "Accessory not found")
+                AccessoriesDetailView --> Staff: 15. Display error message
+            else Accessories Found
+                AdminAccessoriesController -> AutoMapper: 16. ToAdminAccessoryDTO(accessoryDetailData)
+                activate AutoMapper
+                AutoMapper --> AdminAccessoriesController: 17. return DTO 
+                deactivate AutoMapper
+                AdminAccessoriesController --> AccessoriesDetailView: 18. return Ok(200, "Get accessory successfully", DTO)
+                AccessoriesDetailView --> Staff: 19. Show accessory detail data
+            end
+        
+    end
+
+else Catch Exception
+    AdminAccessoriesController --> AccessoriesDetailView: 20. return Badrequest(400, exception.Message)
+    deactivate AdminAccessoriesController
+    AccessoriesDetailView --> Staff: 21. Display error message
+deactivate AccessoriesDetailView
+end
+
+
+
+
+@enduml

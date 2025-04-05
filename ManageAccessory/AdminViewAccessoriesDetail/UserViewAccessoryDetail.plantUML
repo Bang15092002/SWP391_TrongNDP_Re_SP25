@@ -1,0 +1,54 @@
+@startuml
+actor User
+participant ManageAccessoryView
+participant AccessoriesController
+participant AutoMapper
+participant AccessoriesDAO
+participant VinfastContext
+database Database
+
+User -> ManageAccessoryView: 1. Access user view accessory detail page
+activate ManageAccessoryView
+
+    ManageAccessoryView -> AccessoriesController: 2. get "/api/GetAccessoryById/{id}"
+alt try
+    activate AccessoriesController
+
+            AccessoriesController -> AccessoriesDAO: 3. GetAccessoryById(int id)
+            activate AccessoriesDAO
+            
+            AccessoriesDAO -> VinfastContext: 4. GetAccessoryById(int id)
+            activate VinfastContext
+            
+            VinfastContext -> Database: 5. Execute query
+            activate Database
+            Database --> VinfastContext: 6. return accessory detail data
+            deactivate Database
+            
+            VinfastContext --> AccessoriesDAO: 7. return accessory detail data
+            deactivate VinfastContext
+            AccessoriesDAO --> AccessoriesController: 8. return accessory detail data
+            deactivate AccessoriesDAO
+
+            alt No Accessories Found
+                AccessoriesController --> ManageAccessoryView: 9. return NotFound(404, "Accessory not found")
+                ManageAccessoryView --> User: 10. Display error message
+            else Accessories Found
+                AccessoriesController -> AutoMapper: 11. ToAccessoryDTO(accessory)
+                activate AutoMapper
+                AutoMapper --> AccessoriesController: 12. return DTO 
+                deactivate AutoMapper
+                AccessoriesController --> ManageAccessoryView: 13. return Ok(200, "Get accessory successfully", DTO)
+                ManageAccessoryView --> User: 14. Show accessory detail data
+            end
+        
+    
+
+else Catch Exception
+    AccessoriesController --> ManageAccessoryView: 15. return Badrequest(400, exception.Message)
+    deactivate AccessoriesController
+    ManageAccessoryView --> User: 16. Display error message
+deactivate ManageAccessoryView
+end
+
+@enduml

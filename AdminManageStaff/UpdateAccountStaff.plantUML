@@ -1,0 +1,75 @@
+@startuml
+actor Admin
+participant ManageAccountStaffView
+participant UsersController
+participant JwtTokenHelper
+participant UsersDAO
+participant VinfastContext
+database Database
+
+
+Admin -> ManageAccountStaffView: 1. Access manage staff account admin page
+activate ManageAccountStaffView
+
+ManageAccountStaffView -> UsersController: 2. POST "/api/Users/adminUpdateStaffInformation/{userId}" (userData)
+alt try
+    activate UsersController
+    UsersController -> JwtTokenHelper: 3. AuthenticateAndAuthorize(HttpContext, 1)
+    alt Authentication Failure
+        activate JwtTokenHelper
+        JwtTokenHelper --> UsersController: 4. (isSuccess = false, errorMessage)
+        UsersController --> ManageAccountStaffView: 5. Return Unauthorized(401, errorMessage)
+        ManageAccountStaffView --> Admin: 6. Display error message
+        
+    else Authentication successfully
+        JwtTokenHelper --> UsersController: 7. (isSuccess = true, claims)
+        deactivate JwtTokenHelper
+        ' complete check authentication
+        UsersController -> UsersDAO: 8. FindUserById(userData.userId)
+        activate UsersDAO
+        
+        UsersDAO -> VinfastContext: 9. FindUserById(userData.userId)
+        activate VinfastContext
+        
+        VinfastContext -> Database: 10. Execute Query
+        activate Database
+        Database --> VinfastContext: 11. Return staff data (Or null)
+        deactivate Database
+        
+        VinfastContext --> UsersDAO: 12. Return staff data (Or null)
+        deactivate VinfastContext
+        UsersDAO --> UsersController: 13. Return detail staff (or null)
+        deactivate UsersDAO
+
+        alt staff not found (userData == null)
+            UsersController --> ManageAccountStaffView: 14. Return NotFound(404, "staff not found")
+            ManageAccountStaffView --> Admin: 15.Display error message
+        else staff is found (userData != null)
+            UsersController -> UsersDAO: 16. UpdateUser(userData)
+            Activate UsersDAO
+            UsersDAO -> VinfastContext: 17. UpdateUser(userData)
+            activate VinfastContext
+            VinfastContext -> Database: 18. Execute Query
+            activate Database
+            Database --> VinfastContext: 19. Return result
+            deactivate Database
+            VinfastContext --> UsersDAO: 20. Return result
+            deactivate VinfastContext
+            UsersDAO --> UsersController: 21. Return result
+            deactivate UsersDAO
+                
+            UsersController --> ManageAccountStaffView: 22. Return Ok(200, "update staff successfully")
+            ManageAccountStaffView --> Admin: 23. Display success message
+        end
+    end
+else Catch Exception
+    UsersController --> ManageAccountStaffView: 24 Return BadRequest(400, exception.Message)
+    deactivate UsersController
+    ManageAccountStaffView --> Admin: 25 Display Display error message
+deactivate ManageAccountStaffView
+end
+
+
+
+
+@enduml

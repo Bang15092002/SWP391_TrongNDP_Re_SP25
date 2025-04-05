@@ -1,0 +1,54 @@
+@startuml
+actor User
+participant CarDetailView
+participant CarsController
+participant AutoMapper
+participant CarsDAO
+participant VinfastContext
+database Database
+
+User -> CarDetailView: 1. Access user view car detail page
+activate CarDetailView
+
+    CarDetailView -> CarsController: 2. get "/api/GetCarById/{id}"
+alt try
+    activate CarsController
+
+            CarsController -> CarsDAO: 3. GetCarById(int id)
+            activate CarsDAO
+            
+            CarsDAO -> VinfastContext: 4. GetCarById(int id)
+            activate VinfastContext
+            
+            VinfastContext -> Database: 5. Execute query
+            activate Database
+            Database --> VinfastContext: 6. return car detail data
+            deactivate Database
+            
+            VinfastContext --> CarsDAO: 7. return car detail data
+            deactivate VinfastContext
+            CarsDAO --> CarsController: 8. return car detail data
+            deactivate CarsDAO
+
+            alt No Cars Found
+                CarsController --> CarDetailView: 9. return NotFound(404, "Car not found")
+                CarDetailView --> User: 10. Display error message
+            else Cars Found
+                CarsController -> AutoMapper: 11. ToCarDetailDTO(carDetailData)
+                activate AutoMapper
+                AutoMapper --> CarsController: 12. return DTO 
+                deactivate AutoMapper
+                CarsController --> CarDetailView: 13. return Ok(200, "Get car successfully", DTO)
+                CarDetailView --> User: 14. Show car detail data
+            end
+        
+    
+
+else Catch Exception
+    CarsController --> CarDetailView: 15. return Badrequest(400, exception.Message)
+    deactivate CarsController
+    CarDetailView --> User: 16. Display error message
+deactivate CarDetailView
+end
+
+@enduml

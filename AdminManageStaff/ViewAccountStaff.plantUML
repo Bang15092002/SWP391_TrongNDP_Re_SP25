@@ -1,0 +1,70 @@
+@startuml
+actor Admin
+participant ManageAccountStaffView
+participant UsersContronller
+participant AutoMapper
+participant JwtTokenHelper
+participant UsersDAO
+participant VinfastContext
+database Database
+
+
+Admin -> ManageAccountStaffView: 1. Access manage staff account admin page
+activate ManageAccountStaffView
+
+    ManageAccountStaffView -> UsersContronller: 2. Get "/api/Users/adminGetAllStaffs"
+alt try
+    activate UsersContronller
+
+    UsersContronller -> JwtTokenHelper: 3. AuthenticateAndAuthorize(HttpContext, 1)
+        alt Authentication Failure
+            activate JwtTokenHelper
+            JwtTokenHelper --> UsersContronller: 4. (isSuccess = false, errorMessage)
+            UsersContronller --> ManageAccountStaffView: 5. Return Unauthorized(401, errorMessage)
+            ManageAccountStaffView --> Admin: 6. Display error message
+            
+        else Authentication successfully
+            JwtTokenHelper --> UsersContronller: 7. (isSuccess = true, claims)
+            deactivate JwtTokenHelper
+            
+            UsersContronller -> UsersDAO: 8. GetAllStaffsAsync()
+            activate UsersDAO
+            
+            UsersDAO -> VinfastContext: 9. GetAllStaffsAsync()
+            activate VinfastContext
+            
+            VinfastContext -> Database: 10. Execute Query
+            activate Database
+            Database --> VinfastContext: 11. Return staff account list
+            deactivate Database
+            
+            VinfastContext --> UsersDAO: 12. Return staff account list
+            deactivate VinfastContext
+            UsersDAO --> UsersContronller: 13. Return staff account list
+            deactivate UsersDAO
+
+            alt No staff account Found
+                UsersContronller --> ManageAccountStaffView: 14. Return NotFound(404, "No staff found")
+                ManageAccountStaffView --> Admin: 15. Display error message
+            else staff account Found
+                UsersContronller -> AutoMapper: 16. ToUserDTOList(staffs)
+                activate AutoMapper
+                AutoMapper --> UsersContronller: 17. Return DTO List
+                deactivate AutoMapper
+                UsersContronller --> ManageAccountStaffView: 18. Return Ok(200, "Get all staff account list successfully", DTOs)
+                ManageAccountStaffView --> Admin: 19.  Show staff account list 
+            end
+        
+    end
+
+else Catch Exception
+    UsersContronller --> ManageAccountStaffView: 20. Return BadRequest(400, exception.Message)
+    deactivate UsersContronller
+    ManageAccountStaffView --> Admin: 21. Display Display error message
+deactivate ManageAccountStaffView
+end
+
+
+
+
+@enduml

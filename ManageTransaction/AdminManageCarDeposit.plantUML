@@ -1,0 +1,66 @@
+@startuml
+actor Staff
+participant ManageCarDepositView
+participant AdminTransactionsController
+participant AutoMapper
+participant JwtTokenHelper
+participant TransactionsDAO
+participant VinfastContext
+database Database
+
+Staff -> ManageCarDepositView: 1. Access car Deposit page admin view
+activate ManageCarDepositView
+
+    ManageCarDepositView -> AdminTransactionsController: 2. get "/api/AdminTransactions/getAllDepositTransactions"
+alt try
+    activate AdminTransactionsController
+
+    AdminTransactionsController -> JwtTokenHelper: 3. AuthenticateAndAuthorize(HttpContext, 1, 2, 3)
+        alt Authentication Failure
+            activate JwtTokenHelper
+            JwtTokenHelper --> AdminTransactionsController: 4. (isSuccess = false, errorMessage)
+            AdminTransactionsController --> ManageCarDepositView: 5. return Unauthorized(401, errorMessage)
+            ManageCarDepositView --> Staff: 6. Display error message
+            
+        else Authentication successfully
+            JwtTokenHelper --> AdminTransactionsController: 7. (isSuccess = true, claims)
+            deactivate JwtTokenHelper
+            
+            AdminTransactionsController -> TransactionsDAO: 8. GetAllDepositTransactions()
+            activate TransactionsDAO
+            
+            TransactionsDAO -> VinfastContext: 9. GetAllDepositTransactions()
+            activate VinfastContext
+            
+            VinfastContext -> Database: 10. Execute query
+            activate Database
+            Database --> VinfastContext: 11. return car deposit data
+            deactivate Database
+            
+            VinfastContext --> TransactionsDAO: 12. return car deposit data
+            deactivate VinfastContext
+            TransactionsDAO --> AdminTransactionsController: 13. return car deposit data
+            deactivate TransactionsDAO
+
+            alt No cars deposit Found
+                AdminTransactionsController --> ManageCarDepositView: 14. return NotFound(404, "not found")
+                ManageCarDepositView --> Staff: 15. Display error message
+            else cars deposit Found
+                AdminTransactionsController -> AutoMapper: 16. ToInvoiceDTOList(invoiceDTOs)
+                activate AutoMapper
+                AutoMapper --> AdminTransactionsController: 17. return DTO 
+                deactivate AutoMapper
+                AdminTransactionsController --> ManageCarDepositView: 18. return Ok(200, "Get car deposit successfully", DTO)
+                ManageCarDepositView --> Staff: 19. Show car deposit data
+            end
+        
+    end
+
+else Catch Exception
+    AdminTransactionsController --> ManageCarDepositView: 20. return Badrequest(400, exception.Message)
+    deactivate AdminTransactionsController
+    ManageCarDepositView --> Staff: 21. Display error message
+deactivate ManageCarDepositView
+end
+
+@enduml

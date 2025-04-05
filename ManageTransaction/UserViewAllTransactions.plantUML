@@ -1,0 +1,66 @@
+@startuml
+actor Customer
+participant ManageAllTransactionsView
+participant AdminTransactionsController
+participant AutoMapper
+participant JwtTokenHelper
+participant TransactionsDAO
+participant VinfastContext
+database Database
+
+Customer -> ManageAllTransactionsView: 1. Access all transactions page view
+activate ManageAllTransactionsView
+
+    ManageAllTransactionsView -> AdminTransactionsController: 2. get "/api/AdminTransactions/getAllTransactions"
+alt try
+    activate AdminTransactionsController
+
+    AdminTransactionsController -> JwtTokenHelper: 3. AuthenticateAndAuthorize(HttpContext, 2,)
+        alt Authentication Failure
+            activate JwtTokenHelper
+            JwtTokenHelper --> AdminTransactionsController: 4. (isSuccess = false, errorMessage)
+            AdminTransactionsController --> ManageAllTransactionsView: 5. return Unauthorized(401, errorMessage)
+            ManageAllTransactionsView --> Customer: 6. Display error message
+            
+        else Authentication successfully
+            JwtTokenHelper --> AdminTransactionsController: 7. (isSuccess = true, claims)
+            deactivate JwtTokenHelper
+            
+            AdminTransactionsController -> TransactionsDAO: 8. GetAllTransactions(userId)
+            activate TransactionsDAO
+            
+            TransactionsDAO -> VinfastContext: 9. GetAllTransactions(userId)
+            activate VinfastContext
+            
+            VinfastContext -> Database: 10. Execute query
+            activate Database
+            Database --> VinfastContext: 11. return all transactions data
+            deactivate Database
+            
+            VinfastContext --> TransactionsDAO: 12. return all transactions data
+            deactivate VinfastContext
+            TransactionsDAO --> AdminTransactionsController: 13. return all transactions data
+            deactivate TransactionsDAO
+
+            alt No transaction found
+                AdminTransactionsController --> ManageAllTransactionsView: 14. return NotFound(404, "not found")
+                ManageAllTransactionsView --> Customer: 15. Display error message
+            else transactions found
+                AdminTransactionsController -> AutoMapper: 16. ToInvoiceDTOList(invoiceDTOs)
+                activate AutoMapper
+                AutoMapper --> AdminTransactionsController: 17. return DTO 
+                deactivate AutoMapper
+                AdminTransactionsController --> ManageAllTransactionsView: 18. return Ok(200, "Get all transactions successfully", DTO)
+                ManageAllTransactionsView --> Customer: 19. Show all transactions data
+            end
+        
+    end
+
+else Catch Exception
+    AdminTransactionsController --> ManageAllTransactionsView: 20. return Badrequest(400, exception.Message)
+    deactivate AdminTransactionsController
+    ManageAllTransactionsView --> Customer: 21. Display error message
+deactivate ManageAllTransactionsView
+end
+
+@enduml

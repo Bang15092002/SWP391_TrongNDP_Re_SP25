@@ -1,5 +1,5 @@
 @startuml
-actor User
+actor Staff
 participant ManageAccessoryView
 participant AdminAccessoriesController
 participant AutoMapper
@@ -8,19 +8,19 @@ participant AccessoriesDAO
 participant VinfastContext
 database Database
 
-User -> ManageAccessoryView: Access admin manage accessories page
+Staff -> ManageAccessoryView: Access admin manage accessories page
 activate ManageAccessoryView
 
     ManageAccessoryView -> AdminAccessoriesController: Call "/api/AdminAccessories"
 alt try
     activate AdminAccessoriesController
 
-    AdminAccessoriesController -> JwtTokenHelper: AuthenticateAndAuthorize(HttpContext, 1)
+    AdminAccessoriesController -> JwtTokenHelper: AuthenticateAndAuthorize(HttpContext, 1, 3)
         alt Authentication Failure
             activate JwtTokenHelper
             JwtTokenHelper --> AdminAccessoriesController: (isSuccess = false, errorMessage)
             AdminAccessoriesController --> ManageAccessoryView: Return Unauthorized(401, errorMessage)
-            ManageAccessoryView --> User: Display error message
+            ManageAccessoryView --> Staff: Display error message
             
         else Authentication successfully
             JwtTokenHelper --> AdminAccessoriesController: (isSuccess = true, claims)
@@ -44,14 +44,14 @@ alt try
 
             alt No Accessories Found
                 AdminAccessoriesController --> ManageAccessoryView: Return NotFound(404, "No accessories found")
-                ManageAccessoryView --> User: Display Display error message
+                ManageAccessoryView --> Staff: Display Display error message
             else Accessories Found
                 AdminAccessoriesController -> AutoMapper: ToAdminAccessoryDTOList(adminAccessories)
                 activate AutoMapper
                 AutoMapper --> AdminAccessoriesController: Return DTO List
                 deactivate AutoMapper
                 AdminAccessoriesController --> ManageAccessoryView: Return Ok(200, "Get all accessoriess successfully", DTOs)
-                ManageAccessoryView --> User: Display Display error message
+                ManageAccessoryView --> Staff: Display Display error message
             end
         
     end
@@ -59,7 +59,7 @@ alt try
 else Catch Exception
     AdminAccessoriesController --> ManageAccessoryView: Return BadRequest(400, exception.Message)
     deactivate AdminAccessoriesController
-    ManageAccessoryView --> User: Display Display error message
+    ManageAccessoryView --> Staff: Display Display error message
 deactivate ManageAccessoryView
 end
 

@@ -1,0 +1,80 @@
+@startuml
+actor Staff
+participant ManageCarView
+participant AdminCarsController
+participant JwtTokenHelper
+participant CarsDAO
+participant VinfastContext
+database Database
+
+
+Staff -> ManageCarView: 1. Access admin manage car page
+activate ManageCarView
+
+ManageCarView -> AdminCarsController: 2. POST "/api/AdminDeleteCarByCarId(adminCarId)"
+alt try
+    activate AdminCarsController
+    AdminCarsController -> JwtTokenHelper: 3. AuthenticateAndAuthorize(HttpContext, 1, 3)
+    alt Authentication Failure
+        activate JwtTokenHelper
+        JwtTokenHelper --> AdminCarsController: 4. (isSuccess = false, errorMessage)
+        AdminCarsController --> ManageCarView: 5. Return Unauthorized(401, errorMessage)
+        ManageCarView --> Staff: 6. Display error message
+        
+    else Authentication successfully
+        JwtTokenHelper --> AdminCarsController: 7. (isSuccess = true, claims)
+        deactivate JwtTokenHelper
+        ' complete check authentication
+        AdminCarsController -> CarsDAO: 8. GetCarById(adminCarId)
+        activate CarsDAO
+        
+        CarsDAO -> VinfastContext: 9. GetCarById(adminCarId)
+        activate VinfastContext
+        
+        VinfastContext -> Database: 10. Execute Query
+        activate Database
+        Database --> VinfastContext: 11. Return Car Data (Or null)
+        deactivate Database
+        
+        VinfastContext --> CarsDAO: 12. Return Car Data (Or null)
+        deactivate VinfastContext
+        CarsDAO --> AdminCarsController: 13. Return detail car (or null)
+        deactivate CarsDAO
+
+        alt Car not found (CarData == null)
+            AdminCarsController --> ManageCarView: 14. Return NotFound(404, "Car not found")
+            ManageCarView --> Staff: 15.Display error message
+        else Car is found (CarData != null)
+            AdminCarsController -> CarsDAO: 16. DeleteCarById(adminCar)
+            Activate CarsDAO
+            CarsDAO -> VinfastContext: 17. UpdateCar(carData)
+            activate VinfastContext
+            VinfastContext -> Database: 18. Execute Query
+            activate Database
+            Database --> VinfastContext: 19. Return Car Data (Or null)
+            deactivate Database
+            VinfastContext --> CarsDAO: 20. Return Car Data (Or null)
+            deactivate VinfastContext
+            CarsDAO --> AdminCarsController: 21. Return true/false
+            deactivate CarsDAO
+            alt update car failed 
+                AdminCarsController --> ManageCarView: 22. BadRequest(400, "Create car failed")
+                ManageCarView --> Staff: 23. Display error message
+            else Update car successfully
+                
+                AdminCarsController --> ManageCarView: 30. Return Ok(200, "Delete car successfully")
+                ManageCarView --> Staff: 31. Display success message
+            end
+        end
+    end
+else Catch Exception
+    AdminCarsController --> ManageCarView: Return BadRequest(400, exception.Message)
+    deactivate AdminCarsController
+    ManageCarView --> Staff: Display Display error message
+deactivate ManageCarView
+end
+
+
+
+
+@enduml

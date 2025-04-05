@@ -1,5 +1,5 @@
 @startuml
-actor Admin
+actor Staff 
 participant AddCarView
 participant AdminCarsController
 participant JwtTokenHelper
@@ -8,18 +8,18 @@ participant VinfastContext
 database Database
 
 
-Admin -> AddCarView: 1. Access admin add car page
+Staff -> AddCarView: 1. Access admin add car page
 activate AddCarView
 
 AddCarView -> AdminCarsController: 2. POST "/api/adminCreateCar" (carData)
 alt try
     activate AdminCarsController
-    AdminCarsController -> JwtTokenHelper: 3. AuthenticateAndAuthorize(HttpContext, 1)
+    AdminCarsController -> JwtTokenHelper: 3. AuthenticateAndAuthorize(HttpContext, 1,3)
     alt Authentication Failure
         activate JwtTokenHelper
         JwtTokenHelper --> AdminCarsController: 4. (isSuccess = false, errorMessage)
         AdminCarsController --> AddCarView: 5. Return Unauthorized(401, errorMessage)
-        AddCarView --> Admin: 6. Display error message
+        AddCarView --> Staff: 6. Display error message
         
     else Authentication successfully
         JwtTokenHelper --> AdminCarsController: 7. (isSuccess = true, claims)
@@ -43,7 +43,7 @@ alt try
 
         alt Car is existed (CarData != null)
             AdminCarsController --> AddCarView: 14. Return BadRequest(400, "Car is existed")
-            AddCarView --> Admin: 15.Display error message
+            AddCarView --> Staff: 15.Display error message
         else Car not found (CarData == null)
             AdminCarsController -> CarsDAO: 16. CreateCar(carData)
             Activate CarsDAO
@@ -57,13 +57,11 @@ alt try
             deactivate VinfastContext
             CarsDAO --> AdminCarsController: 21. Return new car data (or null)
             deactivate CarsDAO
-            activate AdminCarsController
             alt creating car failed (newCarData == null)
                 AdminCarsController --> AddCarView: 22. BadRequest(400, "Create car failed")
-                AddCarView --> Admin: 23. Display error message
+                AddCarView --> Staff: 23. Display error message
             else Create car successfully (newCarData != null)
                 AdminCarsController -> CarsDAO: 24. CreateImportExportHistory()
-                deactivate AdminCarsController
                 activate CarsDAO
                 CarsDAO -> VinfastContext: 25. CreateImportExportHistory()
                 activate VinfastContext
@@ -76,14 +74,14 @@ alt try
                 CarsDAO --> AdminCarsController: 29. Return ImportExportHistory Data (Or null)
                 deactivate CarsDAO
                 AdminCarsController --> AddCarView: 30. Return Ok(200, "Create car successfully")
-                AddCarView --> Admin: 31. Display success message
+                AddCarView --> Staff: 31. Display success message
             end
         end
     end
 else Catch Exception
     AdminCarsController --> AddCarView: Return BadRequest(400, exception.Message)
     deactivate AdminCarsController
-    AddCarView --> Admin: Display Display error message
+    AddCarView --> Staff: Display Display error message
 deactivate AddCarView
 end
 
